@@ -1,0 +1,51 @@
+usage() {
+    printf '%-12s %-31s %-31s %-32s\n' \
+        "Interface" "Receive" "Transmit" "Total"
+
+    printf '%109s\n' "" | tr ' ' '-'
+
+    for f in /sys/class/net/*/statistics/; do
+        i="${f%/statistics/}"
+
+        rx=$(cat "$f/rx_bytes")
+        tx=$(cat "$f/tx_bytes")
+
+        awk -v name="${i##*/}" -v rx="$rx" -v tx="$tx" '
+        function human(x) {
+            if (x == 0)
+                return "0"
+
+            if (x >= 1099511627776)
+                return sprintf("%.2f TiB", x / 1099511627776)
+
+            if (x >= 1073741824)
+                return sprintf("%.2f GiB", x / 1073741824)
+
+            if (x >= 1048576)
+                return sprintf("%.2f MiB", x / 1048576)
+
+            if (x >= 1024)
+                return sprintf("%.2f KiB", x / 1024)
+
+            return sprintf("%.2f B", x)
+        }
+
+        function formatted(label, bytes) {
+            if (bytes == 0)
+                return label "=0"
+
+            return sprintf("%s=%s (%s)", label, bytes, human(bytes))
+        }
+
+        BEGIN {
+            total = rx + tx
+
+            receive = formatted("rx", rx)
+            transmit = formatted("tx", tx)
+            total_text = formatted("total", total)
+
+            printf "%-12s %-31s %-31s %-32s\n", \
+                name, receive, transmit, total_text
+        }'
+    done
+}
